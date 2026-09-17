@@ -23,8 +23,7 @@
 
 const DEFAULTS = {
   PLAYERS: [
-    { icon: '👦', label: '', greet: "Hello! Let's play!", id: 'hello' },
-    { icon: '👧', label: '', greet: "Hello! Let's play!", id: 'hello' }
+    { icon: '👋', label: '', greet: "Hello! Let's play!", id: 'hello' }
   ],
   PRAISE: { id: 'yummy', text: 'Yummy! Great job!' },
 
