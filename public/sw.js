@@ -15,7 +15,7 @@ const PHRASES = [
 ];
 const AUDIO_ASSETS = PHRASES.map((id) => `/audio/${id}.wav`);
 
-const CACHE_NAME = 'nbp-v12';
+const CACHE_NAME = 'nbp-v13';
 const CORE_ASSETS = [
   '/',
   '/index.html',

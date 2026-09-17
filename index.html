@@ -25,16 +25,23 @@
   <link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2360x1640.png" />
   <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2732x2048.png" />
 
-  <!-- Replace numberplay.example.com with the real domain at VPS deploy time. -->
+  <!-- Not indexed: the build carries personal audio (see deploy/nginx.conf,
+       which sends the same thing as a header). The cards below are for when
+       the link is pasted into a chat, which no robots.txt covers. -->
+  <meta name="robots" content="noindex, nofollow" />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://numberplay.example.com/" />
+  <meta property="og:url" content="https://numberblocks.suneelp.com/" />
+  <meta property="og:site_name" content="Number Playground" />
   <meta property="og:title" content="Number Playground" />
-  <meta property="og:description" content="Interactive counting playground for toddlers. Zero text, zero ads, fully offline." />
-  <meta property="og:image" content="https://numberplay.example.com/og-image.png" />
+  <meta property="og:description" content="Ten counting mini-games for toddlers. No text to read, no ads, no accounts - and it keeps working with the wifi off." />
+  <meta property="og:image" content="https://numberblocks.suneelp.com/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Number Playground - ten counting mini-games for toddlers" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://numberplay.example.com/og-image.png" />
+  <meta name="twitter:title" content="Number Playground" />
+  <meta name="twitter:description" content="Ten counting mini-games for toddlers. No text to read, no ads, no accounts." />
+  <meta name="twitter:image" content="https://numberblocks.suneelp.com/og-image.png" />
 </head>
 <body>
   <div id="app">

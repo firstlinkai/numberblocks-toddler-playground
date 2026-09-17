@@ -401,11 +401,31 @@ this project's history were invisible in the DOM and obvious in a screenshot.
 npm run build      # static output in /dist
 ```
 
-Any static host works. Vercel auto-detects Vite — push and import the repo.
+Any static host works — 124 files, ~5 MB, no backend and no Node at runtime.
+Vercel auto-detects Vite; push and import the repo.
 
-Before going live, replace the placeholder domain in the Open Graph and Twitter Card
-tags in `index.html` and ship a real 1200x630 `og-image.png`; without the image file
-the tags alone still fail to produce a preview card.
+**To a VPS behind Traefik**, `deploy/` has an nginx container, the Traefik labels
+and a one-command deploy script:
+
+```bash
+VPS=user@your-vps ./deploy/deploy.sh
+```
+
+See [deploy/README.md](deploy/README.md). The build runs locally on purpose: the
+local overrides are gitignored, so a server-side `git pull && npm run build` would
+quietly produce the generic version.
+
+The link preview card is generated, not hand-made:
+
+```bash
+python scripts/generate-og.py   # writes public/og-image.png (1200x630)
+```
+
+It draws a standalone card rather than screenshotting the hub, because the running
+app shows the player's name and the OG image is the one asset every chat app fetches
+and caches. If you change the domain, update the `og:` and `twitter:` URLs in
+`index.html` to match — the tags without a reachable image still fail to produce a
+card.
 
 ---
 

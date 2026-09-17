@@ -1,0 +1,39 @@
+# Traefik fronts this; nothing is published on the host. Adjust the three
+# values in .env to match the Traefik that is already running on the box -
+# they are the only things that differ between setups.
+services:
+  numberblocks:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: numberblocks-playground:latest
+    container_name: numberblocks
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik}"
+
+      # HTTPS router
+      - "traefik.http.routers.numberblocks.rule=Host(`${DOMAIN:-numberblocks.suneelp.com}`)"
+      - "traefik.http.routers.numberblocks.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.numberblocks.tls=true"
+      - "traefik.http.routers.numberblocks.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.numberblocks.loadbalancer.server.port=80"
+
+      # Optional password gate. Uncomment both lines and put an htpasswd hash
+      # in BASIC_AUTH to shut the site to everyone but you - the build carries
+      # a child's name and family voice recordings.
+      #   htpasswd -nb someuser somepassword     (escape every $ as $$)
+      # - "traefik.http.routers.numberblocks.middlewares=numberblocks-auth"
+      # - "traefik.http.middlewares.numberblocks-auth.basicauth.users=${BASIC_AUTH}"
+
+networks:
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik}
