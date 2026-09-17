@@ -1,0 +1,23 @@
+{
+  "name": "numberblocks-toddler-playground",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Offline-capable counting playground for toddlers: 4 mini-games, zero text, zero ads, PWA",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "icons": "node scripts/generate-icons.js",
+    "voice": "node scripts/generate-voice.mjs",
+    "voice:compare": "node scripts/compare-voices.mjs",
+    "voice:emotion": "node scripts/compare-emotion.mjs",
+    "check:audio": "node scripts/check-audio.mjs",
+    "check:glyphs": "node scripts/check-glyph-coverage.mjs",
+    "check:dots": "node scripts/check-dots.mjs",
+    "test": "node scripts/audio-util.test.mjs"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}

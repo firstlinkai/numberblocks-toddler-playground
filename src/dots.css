@@ -1,0 +1,158 @@
+/* Connect the Dots.
+ *
+ * The picture lives entirely inside one square `.dots-board`, sized in real
+ * pixels by the scene's own `layout()` rather than a CSS aspect-ratio trick.
+ * The dots are plain HTML buttons placed by percentage over that square, and
+ * because the board is a true square the percentages land exactly on the
+ * SVG's own 0-200 viewBox coordinates underneath - no letterboxing math to
+ * keep the two in sync.
+ *
+ * Reused rather than reinvented: `.match-line` (style.css) draws the outline
+ * segments, and `selectedPulse` / `pop` / `popIn` / `bubblePop` / `shake`
+ * (also style.css) drive every dot animation below except the one new
+ * keyframe (`dotBoost`), which needed a bigger amplitude than any of those
+ * already had.
+ */
+
+.dots-scene {
+  background:
+    radial-gradient(85% 65% at 20% -10%, rgba(255, 255, 255, 0.95) 0%, transparent 60%),
+    radial-gradient(90% 70% at 82% 108%, rgba(255, 214, 153, 0.5) 0%, transparent 62%),
+    linear-gradient(180deg, #fffaf0 0%, #fdf0da 100%);
+}
+
+.dots-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3%;
+}
+
+.dots-board {
+  position: relative;
+}
+
+.dots-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none; /* taps land on the dot buttons, never the artwork */
+  filter: drop-shadow(2px 6px 8px rgba(23, 34, 58, 0.14));
+}
+
+.dots-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------- The picture itself ---------- */
+.dot-fill {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.dot-fill.shown {
+  opacity: 1;
+  animation: pop 0.5s var(--ease-spring);
+}
+
+.dot-face {
+  opacity: 0;
+}
+
+.dot-face.shown {
+  opacity: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: popIn 0.42s var(--ease-spring) backwards;
+  animation-delay: 0.1s;
+}
+
+/* ---------- Dots ---------- */
+.dot {
+  position: absolute;
+  width: clamp(64px, 9vmin, 96px);
+  height: clamp(64px, 9vmin, 96px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  background: linear-gradient(158deg, #ffffff 0%, #eef4fb 55%, #d7e4f3 100%);
+  border-bottom: 6px solid #a9c1dc;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  color: #2b3a55;
+  font: 900 clamp(22px, 3.4vmin, 32px)/1 system-ui, sans-serif;
+  z-index: 5;
+  animation: staggerIn 0.5s var(--ease-spring) backwards;
+  animation-delay: calc(var(--i) * 60ms + 40ms);
+}
+
+.dot-num {
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* The one dot to tap right now - a steady glow plus a gentle infinite
+   breathing pulse, so the child is never scanning the picture for it. */
+.dot.next {
+  background: linear-gradient(158deg, #fffdf5 0%, #ffe9a8 55%, #ffcf4d 100%);
+  border-bottom-color: #d98d0a;
+  box-shadow:
+    0 0 0 5px rgba(251, 191, 36, 0.55),
+    0 0 26px rgba(251, 191, 36, 0.55),
+    var(--gloss), var(--shadow-lift);
+  animation: selectedPulse 1.4s var(--ease-in-out) infinite;
+}
+
+/* A stronger, one-shot bounce on top of the ambient pulse above - used both
+   for the 7s idle nudge and to answer a wrong tap elsewhere. Ends back at the
+   ambient pulse's own resting scale so the handoff doesn't visibly jump. */
+.dot.next.boost {
+  animation: dotBoost 0.56s var(--ease-spring) 1;
+}
+
+@keyframes dotBoost {
+  0% { transform: scale(1.06); }
+  40% { transform: scale(1.4); }
+  100% { transform: scale(1.06); }
+}
+
+/* Tapped out of turn: nothing is lost, just a shake (style.css) - the
+   correct dot's harder bounce above is the actual correction. */
+.dot.wrong,
+.dot.shake {
+  animation: shake 0.42s ease;
+}
+
+/* Joined: pops like a bubble (bubblePop, style.css) and is done for good. */
+.dot.popped {
+  animation: bubblePop 0.35s ease forwards;
+  pointer-events: none;
+}
+
+.dot.done {
+  pointer-events: none;
+}
+
+
+/* The unfinished picture, showing through under the dots. Dashed and faint so
+   it reads as "this is what we are making", never as a finished drawing. */
+.dot-ghost {
+  opacity: 0.22;
+  stroke-dasharray: 9 8;
+  stroke-linejoin: round;
+  animation: dotGhostAnts 1.8s linear infinite;
+}
+
+.dots-scene.done .dot-ghost { opacity: 0; }
+
+@keyframes dotGhostAnts {
+  to { stroke-dashoffset: -17; }
+}

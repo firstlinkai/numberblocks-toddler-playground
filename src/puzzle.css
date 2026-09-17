@@ -1,0 +1,179 @@
+/* "Where does it go?" - tray of pieces on the left, picture with dashed holes
+ * on the right.
+ *
+ * The holes are the piece artwork itself, restyled: `:not(.filled)` strips the
+ * fill and dashes the stroke, and dropping the piece in only removes that
+ * class. Nothing here needs a second copy of a shape, which is why the rules
+ * below are wildcard selectors rather than per-part styling. */
+
+.puzzle {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(10px, 1.6vw, 22px);
+  padding: clamp(8px, 1.4vh, 16px) clamp(10px, 1.6vw, 22px);
+  background:
+    radial-gradient(85% 65% at 18% -8%, rgba(255, 255, 255, 0.95) 0%, transparent 60%),
+    radial-gradient(90% 70% at 80% 108%, rgba(191, 231, 255, 0.55) 0%, transparent 62%),
+    linear-gradient(180deg, #fbfdff 0%, #e6f2fb 100%);
+}
+
+/* ---------- Tray ---------- */
+.pp-tray {
+  flex: 0 0 25%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 16px);
+  min-width: 0;
+}
+
+.pp-item {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: clamp(6px, 1.2vh, 14px);
+  border-radius: var(--r-lg);
+  background: linear-gradient(158deg, #ffffff 0%, #f3f8ff 60%, #e3edf9 100%);
+  border-bottom: 9px solid #b9cde0;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  /* iOS Safari otherwise claims a press-and-drag on the card for page scroll */
+  touch-action: none;
+  animation: staggerIn 0.5s var(--ease-spring) backwards;
+  animation-delay: calc(var(--i) * 80ms + 60ms);
+  transition: opacity 0.22s ease, transform 0.3s var(--ease-spring);
+}
+
+/* Pinned to the card for the same reason the picture is pinned to the board:
+   as a centred grid child the SVG took its height from its square viewBox and
+   overflowed the card, so every piece rendered oversized and hanging out the
+   bottom. Pinned, preserveAspectRatio fits the piece inside the card. */
+.pp-piece {
+  /* Explicit percentage box, not `inset` alone: an absolutely positioned SVG
+     is a REPLACED element, so with width/height auto it keeps its intrinsic
+     size and ignores the opposite offsets - the piece then rendered at card
+     width, square, anchored top-left, and hung out of the card. */
+  position: absolute;
+  left: 8%;
+  top: 8%;
+  width: 84%;
+  height: 84%;
+  overflow: visible;
+  filter: drop-shadow(1px 3px 3px rgba(23, 34, 58, 0.18));
+  pointer-events: none;   /* the card owns the gesture, not the artwork */
+}
+
+.pp-ghost .pp-piece { left: 0; top: 0; width: 100%; height: 100%; }
+
+/* Picked up: the card keeps its slot in the tray so the layout never jumps
+   mid-drag, but reads as empty. */
+.pp-item.held { opacity: 0.22; }
+
+/* Placed. The card keeps its place in the column and keeps a ghost of the
+   piece: emptying it entirely left a hole in the tray and the remaining cards
+   read as misaligned. */
+.pp-item.done {
+  opacity: 0.2;
+  transform: scale(0.88);
+  pointer-events: none;
+  border-bottom-color: #d6e3ee;
+  box-shadow: none;
+}
+
+.pp-item.nudge { animation: ppNudge 0.62s var(--ease-in-out) 2; }
+
+/* ---------- Picture ---------- */
+.pp-board {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pp-pic {
+  /* Pinned to the board, not sized by it: as a flow child the SVG took its
+     height from its own intrinsic ratio (the board's height is not a definite
+     percentage base here) and the picture hung off the bottom of the stage.
+     preserveAspectRatio then letterboxes the drawing inside this box. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pp-base { filter: drop-shadow(2px 5px 5px rgba(23, 34, 58, 0.16)); }
+
+/* An empty hole: the piece's own outline, hollow and dashed. The marching
+   ants matter - a still dotted line is easy for a toddler to read as part of
+   the drawing instead of a place to put something. */
+.pp-slot:not(.filled) * {
+  fill: none !important;
+  stroke: var(--sc) !important;
+  stroke-width: 4 !important;
+  stroke-dasharray: 10 8 !important;
+  stroke-linecap: round;
+  opacity: 0.55;
+  animation: ppAnts 1.6s linear infinite;
+}
+
+/* Decoration (pupils, a door knob, a leaf) is dropped from the outline:
+   dashed detail inside a dashed shape reads as noise at this age.
+   Hidden with visibility, never display:none - the tray thumbnail crops to
+   this group's getBBox, and a display:none child leaves the box, so an
+   apple's stem and leaf spilled outside its tray card. */
+.pp-slot:not(.filled) [data-detail] { visibility: hidden; }
+
+/* While its piece is in the air. Bright, thick and steady, so the target is
+   unmissable the moment the child commits to a piece. */
+.pp-slot.hint:not(.filled) * {
+  opacity: 1;
+  stroke-width: 6 !important;
+  stroke-dasharray: 14 9 !important;
+}
+
+.pp-slot.hint:not(.filled) { filter: drop-shadow(0 0 10px var(--sc)); }
+
+.pp-slot.nudge:not(.filled) {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ppNudge 0.62s var(--ease-in-out) 2;
+}
+
+/* Seated. */
+.pp-slot.pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ppPop 0.44s var(--ease-spring);
+}
+
+/* ---------- The piece in flight ---------- */
+.pp-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(3px 10px 10px rgba(23, 34, 58, 0.3));
+}
+
+.pp-ghost .pp-piece { filter: none; }
+
+.pp-ghost.flying { transition: transform 0.2s var(--ease-out), opacity 0.28s ease; }
+
+@keyframes ppAnts {
+  to { stroke-dashoffset: -18; }
+}
+
+@keyframes ppNudge {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.14); }
+  70% { transform: scale(0.97); }
+}
+
+@keyframes ppPop {
+  0% { transform: scale(0.72); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* A tray card sits in normal flow, so it animates from its own box. */
+.pp-item.nudge { transform-origin: center; }

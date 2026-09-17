@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Number Playground</title>
+  <meta name="description" content="Interactive counting playground for toddlers" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4F46E5" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Number Play" />
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
+
+  <!-- iOS launch screens. iOS ignores the manifest here; without these the app
+       flashes white on every launch. iPad landscape sizes only - device-width /
+       device-height are the device's portrait size, `orientation` picks the asset. -->
+  <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2048x1536.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2224x1668.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2388x1668.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2360x1640.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/icons/splash-2732x2048.png" />
+
+  <!-- Replace numberplay.example.com with the real domain at VPS deploy time. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://numberplay.example.com/" />
+  <meta property="og:title" content="Number Playground" />
+  <meta property="og:description" content="Interactive counting playground for toddlers. Zero text, zero ads, fully offline." />
+  <meta property="og:image" content="https://numberplay.example.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://numberplay.example.com/og-image.png" />
+</head>
+<body>
+  <div id="app">
+    <div id="topbar"></div>
+    <div id="stage"></div>
+  </div>
+
+  <!-- Shown by CSS when device is in portrait (landscape required) -->
+  <div id="rotate-overlay">
+    <div class="rotate-icon">📱</div>
+  </div>
+
+  <!-- Full-screen overlay for particles / confetti (non-interactive) -->
+  <div id="fx-layer"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

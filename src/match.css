@@ -1,0 +1,17 @@
+/* Match scene: everything the finger-drag gesture needs on top of the base
+ * tile / line / selected / shake / matched styling already in style.css. */
+
+.match-tile {
+  /* iOS Safari otherwise steals a press-and-drag on a tile for page scroll,
+   * even though the app disables scrolling globally (see main.js). */
+  touch-action: none;
+}
+
+/* Tile currently under the finger while a rubber-band line is out. */
+.match-tile.drag-over {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 5px #38bdf8,
+    0 0 26px rgba(56, 189, 248, 0.6),
+    var(--shadow-lift);
+}

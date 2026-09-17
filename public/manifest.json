@@ -1,0 +1,26 @@
+{
+  "name": "Numberblocks Toddler Playground",
+  "short_name": "Number Play",
+  "description": "Interactive counting playground for toddlers. Zero text, zero ads, fully offline.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#FFFDED",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

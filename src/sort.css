@@ -1,0 +1,144 @@
+/* Sort It! - two open bins at the bottom, items scattered above.
+ * Bins and items share the same handful of "tint" classes (background +
+ * edge colour only) so a colour swatch looks identical whether it's a big
+ * bin or a small dragged shape - see SortItScene.js's buildContent(). */
+
+.sort {
+  background:
+    radial-gradient(70% 50% at 20% -6%, rgba(255, 255, 255, 0.85) 0%, transparent 60%),
+    linear-gradient(180deg, #d7f5ef 0%, #eafaf6 46%, #fffded 100%);
+}
+
+/* ---------- Bins ---------- */
+.sort-bin {
+  position: absolute;
+  bottom: 4%;
+  width: 43%;
+  height: 36%;
+  border-radius: var(--r-lg);
+  background: linear-gradient(158deg, #fffef7 0%, #fbf6e4 55%, #f3ecd2 100%);
+  border-bottom: 14px solid #d8cda0;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  transition: box-shadow 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+}
+
+.sort-bin-a { left: 5%; }
+.sort-bin-b { right: 5%; }
+
+/* The dark "mouth" of an open bin - just a soft blurred ellipse, not a
+ * literal basket weave: enough to read as a container without noise. */
+.sort-bin::after {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 9%;
+  height: 26%;
+  border-radius: 50%;
+  background: rgba(23, 34, 58, 0.1);
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+/* Held: the item's OWN correct bin glows the instant it leaves its spot -
+ * the point is sorting, not hunting for the right answer. */
+.sort-bin.glow {
+  box-shadow:
+    0 0 0 8px rgba(250, 204, 21, 0.55),
+    0 0 44px rgba(250, 204, 21, 0.55),
+    var(--gloss), var(--shadow-lift);
+  animation: sortBinGlow 1s var(--ease-in-out) infinite;
+}
+
+@keyframes sortBinGlow {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* Wrong drop / idle nudge reuse the app's own global .shake, .pop and
+ * .boing keyframes (style.css) rather than defining new ones. */
+.sort-bin.nudge, .sort-item.nudge {
+  animation: boing 0.6s var(--ease-spring) 2;
+}
+
+/* ---------- Bin label chip (icon / dot count - never text) ---------- */
+.sort-bin-label {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 84px;
+  min-height: 64px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(170deg, #ffffff 0%, #fafbff 58%, #eef1f8 100%);
+  box-shadow: var(--gloss), var(--shadow);
+  border-bottom: 5px solid #d7dce8;
+  z-index: 2;
+}
+
+.sort-label-emoji {
+  font-size: 38px;
+  line-height: 1;
+}
+
+/* ---------- Colour swatch tints (shared by bins AND items) ---------- */
+.tint-red    { background: linear-gradient(158deg, #fff3f2 0%, #fca5a5 42%, #ef4444 100%); border-bottom-color: #ad2b2b; }
+.tint-blue   { background: linear-gradient(158deg, #eef6ff 0%, #93c5fd 42%, #3b82f6 100%); border-bottom-color: #1d4ed8; }
+.tint-fruit  { background: linear-gradient(158deg, #f3fdf5 0%, #bbf0c8 42%, #4ade80 100%); border-bottom-color: #1f8a4c; }
+.tint-animal { background: linear-gradient(158deg, #fff8ef 0%, #fbd39b 42%, #f59e0b 100%); border-bottom-color: #a86407; }
+
+/* ---------- Items (draggable) ---------- */
+.sort-item {
+  display: grid;
+  place-items: center;
+  border-bottom: 10px solid #cfd3e0;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  animation: staggerIn 0.5s var(--ease-spring) backwards;
+}
+
+.sort-item.sort-shape-circle { border-radius: 50%; }
+.sort-item.sort-shape-square { border-radius: 22%; }
+
+.sort-item.sort-emoji-item,
+.sort-item.sort-count-item {
+  border-radius: 26%;
+  background: linear-gradient(158deg, #ffffff 0%, #f7f7fb 55%, #ebebf3 100%);
+  gap: 10%;
+}
+
+.sort-emoji {
+  line-height: 1;
+  filter: drop-shadow(1px 3px 2px rgba(23, 34, 58, 0.2));
+}
+
+.sort-dot {
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow:
+    inset 0 4px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* A toy ball: no flat slab edge like the cards above, just a lit sphere. */
+.sort-item.sort-toy,
+.sort-toy {
+  border-radius: 50%;
+  border-bottom: none;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, var(--c) 46%, var(--c) 100%);
+  box-shadow:
+    inset 0 8px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -10px 14px rgba(0, 0, 0, 0.22),
+    2px 10px 16px -4px rgba(23, 34, 58, 0.28);
+}
+
+/* Settled into its bin: no longer draggable, sits at its own scaled-down
+ * resting size (set inline via --nest-scale in SortItScene.js). */
+.sort-item.sorted {
+  z-index: 3;
+}

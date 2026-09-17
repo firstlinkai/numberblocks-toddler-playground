@@ -1,0 +1,1812 @@
+/* ============================================================
+   Numberblocks Toddler Playground
+   Landscape-only, toddler-sized touch targets, no text UI
+
+   ONE LIGHT SOURCE: upper-left, roughly 35 degrees down.
+     - highlights sit on the top and left edge of every surface
+     - shadows fall down and slightly right
+     - face gradients run light (top-left) to saturated (bottom-right)
+     - the decorative sun lives top-left so the scene agrees with the UI
+
+   MATERIAL: nothing is a flat rectangle with a blur under it. Every tappable
+   surface is a slab: a coloured bottom border in a darker shade of that
+   surface's own hue (its thickness), a bright top lip where the light lands,
+   a tight contact shadow for the footprint and a wide ambient one for the room.
+   Pressing thins the bottom border and drops the slab by the same amount, so
+   it compresses against the page instead of just shrinking.
+   ============================================================ */
+
+:root {
+  --theme: #4f46e5;
+  --cream: #fffded;
+  --ink: #17223a;
+  --ink-soft: #4a5570;
+
+  /* Local rounded stack only - the manifest promises the app works fully
+     offline, so no webfont link. ui-rounded resolves to SF Pro Rounded on
+     the target iPad; the rest are desktop fallbacks. */
+  --font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold",
+          "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+
+  /* Elevation: a tight contact shadow for the footprint, a mid shadow for
+     form, a wide ambient one for the room. All offset down-right to agree
+     with the upper-left light - never a uniform blur on all four sides. */
+  --shadow: 0 2px 3px -1px rgba(23, 34, 58, 0.16),
+            3px 10px 16px -8px rgba(23, 34, 58, 0.2),
+            6px 22px 38px -16px rgba(23, 34, 58, 0.2);
+  --shadow-lift: 0 3px 5px -1px rgba(23, 34, 58, 0.18),
+                 5px 16px 26px -10px rgba(23, 34, 58, 0.24),
+                 10px 38px 62px -20px rgba(23, 34, 58, 0.28);
+  --shadow-press: 0 1px 2px rgba(23, 34, 58, 0.22),
+                  2px 4px 8px -4px rgba(23, 34, 58, 0.2);
+
+  /* The lit lip: bright along the top, a weaker rim down the left */
+  --gloss: inset 0 2px 0 rgba(255, 255, 255, 0.92),
+           inset 3px 0 0 rgba(255, 255, 255, 0.3);
+
+  /* Default slab thickness colour, overridden per card with its own hue */
+  --edge: rgba(23, 34, 58, 0.2);
+
+  /* Motion: settle for arrivals, overshoot for toddler feedback */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-settle: cubic-bezier(0.18, 0.9, 0.24, 1.06);
+
+  --r-sm: 14px;
+  --r-md: 22px;
+  --r-lg: 30px;
+}
+
+/* Covers every animation and transition in this file, including the ones
+   added in this pass - the universal selector is deliberate. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--cream);
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  position: fixed;
+  inset: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+/* index.html ships viewport-fit=cover + a black-translucent status bar, so
+   when the game is launched from the iPad home screen the page is drawn
+   UNDER the status bar and the home indicator. These insets pull the whole
+   app (top bar AND stage) back inside the safe area.
+   box-sizing is border-box globally, so the padding comes out of the 100dvh
+   box rather than adding to it - nothing overflows and nothing scrolls.
+   The scene percentages all resolve against #stage, which simply gets
+   shorter, so .hub-grid and .gallery keep their proportions: the gallery
+   still owns the bottom 20% of the stage and .hub-grid still stops 28px
+   above it, whatever the insets turn out to be.
+   In a desktop browser every env() here is 0 and nothing changes. */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* fallback above for older iOS Safari */
+  width: 100vw;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+  /* Painted only where an inset is non-zero. black-translucent draws the
+     clock/wifi/battery in WHITE, so the strip behind them has to be dark -
+     the cream page background would swallow them. Matches the manifest's
+     theme-color, so the strip reads as the app's own status bar. */
+  background: var(--theme);
+}
+
+/* The bar cannot share the scene's sky (it is a sibling above #stage), so
+   it is built as deliberate app chrome instead: a lit shelf the scene
+   tucks under. */
+#topbar {
+  flex: 0 0 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  position: relative;
+  z-index: 20;
+  background: linear-gradient(180deg, #ffffff 0%, #fdfaf0 62%, #f7f1de 100%);
+  box-shadow:
+    inset 0 -1px 0 rgba(23, 34, 58, 0.09),
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 4px 14px -4px rgba(23, 34, 58, 0.14);
+}
+
+#stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.scene-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Scene arrival: the new screen settles in from slightly back and below
+   rather than hard-cutting. Paired with .fade-out in the router so the two
+   scenes cross-dissolve instead of flashing the empty stage between them.
+   `backwards`, not `both`: a filled forwards transform would sit on the
+   element for the rest of its life and silently beat every :active state. */
+.fade-in {
+  animation: sceneIn 0.42s var(--ease-out) backwards;
+}
+
+.fade-out {
+  animation: sceneOut 0.2s var(--ease-in-out) both;
+  pointer-events: none;
+}
+
+@keyframes sceneIn {
+  from { opacity: 0; transform: scale(0.965) translateY(14px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes sceneOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.02); }
+}
+
+/* Children of an arriving scene cascade in behind it - set --i per element.
+   Overshoots past its resting size on the spring curve and lands. */
+.stagger-in {
+  animation: staggerIn 0.52s var(--ease-spring) backwards;
+  animation-delay: calc(var(--i, 0) * 60ms + 90ms);
+}
+
+@keyframes staggerIn {
+  0% { opacity: 0; transform: translateY(30px) scale(0.86); }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---------- top bar widgets ---------- */
+.tb-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tb-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.tb-name {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  line-height: 1;
+  white-space: nowrap;
+  background: linear-gradient(170deg, #ffffff 0%, #f6f4ff 60%, #eeebff 100%);
+  color: #4338ca;
+  border-radius: 999px;
+  padding: 0 20px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.005em;
+  border-bottom: 4px solid #c7c2ef;
+  box-shadow: var(--gloss), var(--shadow);
+  cursor: pointer;
+  transition:
+    transform 0.24s var(--ease-settle),
+    border-bottom-width 0.18s var(--ease-out),
+    box-shadow 0.24s var(--ease-out);
+}
+
+.tb-name:active {
+  transform: translateY(2px) scale(0.97);
+  border-bottom-width: 2px;
+  box-shadow: var(--shadow-press);
+}
+
+.tb-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
+  background: linear-gradient(170deg, #ffffff 0%, #f6f6fa 58%, #ececf4 100%);
+  border-bottom: 4px solid #cdcedd;
+  box-shadow: var(--gloss), var(--shadow);
+  font-size: 23px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.24s var(--ease-settle),
+    border-bottom-width 0.18s var(--ease-out),
+    box-shadow 0.24s var(--ease-out);
+}
+
+.tb-btn:active {
+  transform: translateY(3px) scale(0.93);
+  border-bottom-width: 1px;
+  box-shadow: var(--shadow-press);
+}
+
+.tb-fs {
+  color: #4b4d63;
+}
+
+.tb-fs svg {
+  width: 25px;
+  height: 25px;
+  display: block;
+}
+
+/* Shown when the browser has no Fullscreen API at all (Chrome on iOS,
+   Safari on iPhone) - the button has to say something rather than no-op */
+.fs-hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 999;
+  max-width: min(440px, 82vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 26px;
+  border-radius: var(--r-lg);
+  background: linear-gradient(170deg, #ffffff 0%, #f7f7fc 100%);
+  border-bottom: 6px solid #cdcedd;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  color: #2b2d42;
+  font-size: 17px;
+  line-height: 1.45;
+  text-align: center;
+  animation: hintIn 0.32s var(--ease-spring) backwards;
+}
+
+.fs-hint b {
+  font-weight: 800;
+}
+
+@keyframes hintIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 14px)) scale(0.94); }
+}
+
+.tb-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  background: linear-gradient(170deg, #ffffff 0%, #fffaef 60%, #fdf2d9 100%);
+  border-radius: 999px;
+  padding: 0 16px;
+  border-bottom: 4px solid #e6d3a6;
+  box-shadow: var(--gloss), var(--shadow);
+}
+
+.tb-star-ico {
+  font-size: 21px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(180, 83, 9, 0.3));
+}
+
+.tb-star-count {
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1;
+  color: #a1560a;
+  min-width: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-pill.bump {
+  animation: bump 0.45s var(--ease-spring);
+}
+
+@keyframes bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.24) translateY(-2px); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- portrait rotation guard ---------- */
+#rotate-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background:
+    radial-gradient(70% 55% at 50% 42%, rgba(255, 255, 255, 0.24) 0%, transparent 70%),
+    linear-gradient(170deg, #6d66ef 0%, var(--theme) 58%, #3b32b8 100%);
+  align-items: center;
+  justify-content: center;
+}
+
+#rotate-overlay .rotate-icon {
+  font-size: 110px;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.32));
+  animation: rotateHint 2.2s var(--ease-in-out) infinite;
+}
+
+@keyframes rotateHint {
+  0%, 25% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(90deg); }
+}
+
+@media (orientation: portrait) {
+  #rotate-overlay { display: flex; }
+}
+
+/* ---------- fx overlay ---------- */
+#fx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  overflow: hidden;
+}
+
+.fx-particle {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+.fx-emoji {
+  position: absolute;
+  font-size: 52px;
+  will-change: transform, opacity;
+  filter: drop-shadow(2px 6px 8px rgba(23, 34, 58, 0.28));
+}
+
+/* ============================================================
+   HUB (Main Playground)
+   Depth order, back to front:
+     sky gradient -> sun + clouds -> vignette (::after, z1)
+     -> ambient stage glow (::before, z2) -> name row / cards (z5,6)
+     -> frosted gallery shelf (z5, bottom of screen)
+   ============================================================ */
+.hub {
+  background:
+    radial-gradient(110% 75% at 16% -12%, rgba(255, 246, 196, 0.9) 0%, rgba(255, 246, 196, 0) 58%),
+    linear-gradient(180deg, #6fbcf3 0%, #9ed7f8 30%, #d2effd 60%, #fffded 100%);
+}
+
+/* Soft vignette keeps the eye on the cards without a visible edge */
+.hub::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(130% 95% at 50% 46%, transparent 52%, rgba(23, 34, 58, 0.13) 100%);
+  z-index: 1;
+}
+
+/* Ambient stage light: a wide, soft pool sitting between the sky and the
+   cards so the grid reads as a lit shelf of objects, not stickers on a wall.
+   It is a pseudo-element on .hub (never on .hub-grid - a pseudo-element
+   there would become a seventh grid item). */
+.hub::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 30px;
+  height: 66%;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(58% 64% at 46% 44%,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.24) 40%,
+    rgba(255, 255, 255, 0) 72%);
+}
+
+.hub-sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Upper-left, so the scene's own light matches every highlight below it */
+.sun {
+  position: absolute;
+  top: -46px;
+  left: -46px;
+  width: 152px;
+  height: 152px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 62% 62%, #fffbe0 0%, #ffeb8e 42%, #ffcc33 78%, #f9b005 100%);
+  box-shadow:
+    0 0 48px rgba(255, 205, 58, 0.7),
+    0 0 130px 34px rgba(255, 221, 97, 0.42);
+  animation: sunPulse 7s var(--ease-in-out) infinite;
+}
+
+@keyframes sunPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.045); filter: brightness(1.07); }
+}
+
+.cloud {
+  position: absolute;
+  left: 0;
+  width: 150px;
+  height: 46px;
+  border-radius: 999px;
+  /* lit from the upper left, so the underside is faintly cooler */
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 58%, #eaf4fd 100%);
+  filter: drop-shadow(4px 10px 14px rgba(58, 110, 155, 0.2));
+  box-shadow:
+    32px -20px 0 4px #ffffff,
+    -34px -12px 0 0 #fbfdff;
+  /* drift uses `translate` so it composes with the per-cloud `transform`
+     scale below, and stays off the layout path (animating `left` relaid
+     out the whole scene every frame) */
+  animation: drift linear infinite;
+}
+
+.cloud-0 { top: 9%; animation-duration: 46s; }
+.cloud-1 { top: 34%; transform: scale(0.7); animation-duration: 62s; animation-delay: -24s; }
+.cloud-2 { top: 55%; transform: scale(0.55); animation-duration: 78s; animation-delay: -48s; }
+
+@keyframes drift {
+  from { translate: -260px 0; }
+  to { translate: 105vw 0; }
+}
+
+/* Name row and grid are positioned in absolute px at the top, not in
+   percentages: the row is a fixed 46px tall slab at y=10, so its lowest
+   possible edge is y=56 at every viewport size, and the grid starts at
+   y=66. The 10px clearance cannot collapse because neither number depends
+   on the viewport, the font metrics or the emoji's line box. */
+.hub-title-row {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 6;
+}
+
+.hub-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;          /* >= 44px tap target, well clear of .hub-grid */
+  padding: 0 18px;
+  line-height: 1;        /* pins the box height - emoji line boxes are tall */
+  white-space: nowrap;
+  background: linear-gradient(170deg, #ffffff 0%, #f7f5ff 58%, #efecff 100%);
+  color: #4338ca;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
+  border-bottom: 4px solid #c3bdee;
+  box-shadow: var(--gloss), var(--shadow);
+  transition:
+    transform 0.24s var(--ease-settle),
+    border-bottom-width 0.18s var(--ease-out),
+    box-shadow 0.24s var(--ease-out);
+  /* float on `translate` so the press `transform` below still composes */
+  animation: titleFloat 2.8s var(--ease-in-out) infinite;
+}
+
+.hub-title:active {
+  transform: translateY(2px) scale(0.95);
+  border-bottom-width: 2px;
+  box-shadow: var(--shadow-press);
+}
+
+.hub-title:nth-child(2) {
+  animation-delay: 0.35s;
+}
+
+/* only ever rises, so the row's lower edge stays at y=56 */
+@keyframes titleFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
+}
+
+.hub-grid {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  top: 66px;                    /* 10px below the name row's fixed 56px foot */
+  bottom: calc(20% + 28px);     /* gallery owns the bottom 20%, 28px of air */
+  display: grid;
+  /* 5x2 holds all ten launchers exactly, with no odd cell out. */
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: clamp(12px, 2.1vh, 24px) clamp(14px, 1.9vw, 28px);
+  z-index: 5;
+}
+
+/* A pressable slab: coloured thickness along the bottom (its own hue,
+   darkened), a lit top lip, and a contact shadow offset down-right. */
+.game-card {
+  position: relative;
+  border-radius: var(--r-lg);
+  border-bottom: 12px solid var(--edge);
+  box-shadow: var(--gloss), var(--shadow-lift);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 0.26s var(--ease-settle),
+    border-bottom-width 0.16s var(--ease-out),
+    box-shadow 0.26s var(--ease-out);
+  animation:
+    staggerIn 0.55s var(--ease-spring) backwards,
+    floaty 3.4s var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i) * 70ms + 80ms), calc(var(--i) * 0.4s + 0.6s);
+}
+
+/* Specular sweep across the top-left, the highlight a glossy toy would catch */
+.game-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.16) 30%,
+    rgba(255, 255, 255, 0) 54%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Compress: the slab loses most of its thickness and drops by the same
+   amount, so its footprint stays put while the face sinks toward it. */
+.game-card:active {
+  transform: translateY(9px) scale(0.975);
+  border-bottom-width: 3px;
+  box-shadow: var(--gloss), var(--shadow-press);
+}
+
+@keyframes floaty {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -9px; }
+}
+
+.game-icon {
+  position: relative;
+  z-index: 2;
+  font-size: min(12vh, 8.4vw);
+  line-height: 1;
+  filter:
+    drop-shadow(1px 3px 2px rgba(23, 34, 58, 0.16))
+    drop-shadow(4px 12px 16px rgba(23, 34, 58, 0.2));
+  transition: transform 0.3s var(--ease-spring);
+}
+
+.game-card:active .game-icon {
+  transform: scale(1.08) translateY(-2px);
+}
+
+/* Three-stop ramps lit from the top-left: a bright shoulder, the saturated
+   body, then --edge as the slab's own darkened thickness underneath. */
+.card-snap        { background: linear-gradient(158deg, #fffdf0 0%, #fde96f 42%, #f5bd0c 100%); --edge: #b07c05; }
+.card-feed        { background: linear-gradient(158deg, #fff3f2 0%, #fcb4b4 42%, #f45f5f 100%); --edge: #ad2b2b; }
+.card-tower       { background: linear-gradient(158deg, #f2f8ff 0%, #a9d0fd 42%, #4c93f7 100%); --edge: #1f5fc4; }
+.card-trace       { background: linear-gradient(158deg, #f7f4ff 0%, #d0c6fd 42%, #9a79f9 100%); --edge: #5a34c4; }
+.card-instruments { background: linear-gradient(158deg, #f0fdf7 0%, #93edc6 42%, #22c78d 100%); --edge: #0a7c5c; }
+.card-match       { background: linear-gradient(158deg, #effdff 0%, #93ecf9 42%, #12c5e3 100%); --edge: #0a7c96; }
+.card-parts       { background: linear-gradient(158deg, #fff5fa 0%, #fbb6d9 42%, #ec4899 100%); --edge: #a21a63; }
+.card-dots        { background: linear-gradient(158deg, #fff8ef 0%, #fdd39b 42%, #f59e0b 100%); --edge: #a86407; }
+.card-sort        { background: linear-gradient(158deg, #f2fdfb 0%, #99e7dd 42%, #14b8a6 100%); --edge: #0b7266; }
+.card-memory      { background: linear-gradient(158deg, #f6f5ff 0%, #c3bdfb 42%, #6366f1 100%); --edge: #3a34ad; }
+
+/* ---------- Instruments game ---------- */
+.instruments {
+  background:
+    radial-gradient(80% 60% at 22% -6%, rgba(255, 255, 255, 0.92) 0%, transparent 62%),
+    radial-gradient(90% 70% at 50% 108%, rgba(253, 224, 171, 0.5) 0%, transparent 60%),
+    linear-gradient(180deg, #fffdf3 0%, #fbf0dd 100%);
+}
+
+.inst-grid {
+  position: absolute;
+  inset: 5% 4% 5.5%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: clamp(12px, 2.2vh, 26px) clamp(14px, 2vw, 30px);
+}
+
+.inst-card {
+  position: relative;
+  border-radius: var(--r-lg);
+  border-bottom: 12px solid var(--edge);
+  box-shadow: var(--gloss), var(--shadow-lift);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 0.26s var(--ease-settle),
+    border-bottom-width 0.16s var(--ease-out),
+    box-shadow 0.26s var(--ease-out);
+  animation:
+    staggerIn 0.55s var(--ease-spring) backwards,
+    floaty 3.4s var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i) * 70ms + 80ms), calc(var(--i) * 0.4s + 0.6s);
+}
+
+.inst-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.16) 30%,
+    rgba(255, 255, 255, 0) 54%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.inst-card:active {
+  transform: translateY(9px) scale(0.975);
+  border-bottom-width: 3px;
+  box-shadow: var(--gloss), var(--shadow-press);
+}
+
+/* Tap ripple: a ring of the card's own light expanding outward, so a tap
+   reads as the instrument resonating rather than just a bounce. */
+.inst-card::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.inst-card.boing {
+  animation:
+    boing 0.5s var(--ease-spring),
+    floaty 3.4s var(--ease-in-out) infinite 0.5s;
+}
+
+.inst-card.boing::after {
+  animation: instRipple 0.55s var(--ease-out);
+}
+
+@keyframes instRipple {
+  from { opacity: 0.85; scale: 0.4; }
+  to { opacity: 0; scale: 2.4; }
+}
+
+.inst-icon {
+  position: relative;
+  z-index: 2;
+  font-size: min(15vh, 10vw);
+  line-height: 1;
+  filter:
+    drop-shadow(1px 3px 2px rgba(23, 34, 58, 0.16))
+    drop-shadow(4px 12px 16px rgba(23, 34, 58, 0.2));
+  transition: transform 0.3s var(--ease-spring);
+}
+
+.inst-card:active .inst-icon {
+  transform: scale(1.1) rotate(-3deg);
+}
+
+.inst-piano     { background: linear-gradient(158deg, #ffffff 0%, #dfe6ef 42%, #8d9cb1 100%); --edge: #4c5b70; }
+.inst-drum      { background: linear-gradient(158deg, #fff3f2 0%, #fcb4b4 42%, #f45f5f 100%); --edge: #ad2b2b; }
+.inst-guitar    { background: linear-gradient(158deg, #fffcef 0%, #fcdf7c 42%, #f7b01a 100%); --edge: #a9660a; }
+.inst-trumpet   { background: linear-gradient(158deg, #fff8f0 0%, #fecb96 42%, #f9862e 100%); --edge: #b1490c; }
+.inst-xylophone { background: linear-gradient(158deg, #f2fdf5 0%, #aaf0c1 42%, #3fd36f 100%); --edge: #158240; }
+.inst-maracas   { background: linear-gradient(158deg, #f7f4ff 0%, #d0c6fd 42%, #9a79f9 100%); --edge: #5a34c4; }
+
+/* ---------- Match game (digit <-> word) ---------- */
+.match {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  padding: 4.5% 6% 5%;
+  gap: 8%;
+  background:
+    radial-gradient(70% 55% at 22% -4%, rgba(255, 255, 255, 0.95) 0%, transparent 62%),
+    radial-gradient(100% 60% at 50% 104%, rgba(214, 226, 250, 0.7) 0%, transparent 62%),
+    linear-gradient(180deg, #fffdf4 0%, #eef2fb 100%);
+}
+
+.match-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* The connector draws itself on instead of appearing - stroke-dasharray is
+   set to the line's own length in JS so the dash sweep covers exactly it. */
+.match-line {
+  opacity: 0.92;
+  filter:
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.9))
+    drop-shadow(2px 5px 6px rgba(23, 34, 58, 0.28));
+  animation: drawLine 0.45s var(--ease-out) backwards;
+}
+
+@keyframes drawLine {
+  from { stroke-dashoffset: var(--len, 600); }
+  to { stroke-dashoffset: 0; }
+}
+
+.match-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+  gap: 14px;
+  z-index: 2;
+}
+
+.match-tile {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  min-height: 14vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.24em 0.6em;
+  line-height: 1;
+  border-radius: var(--r-md);
+  background: linear-gradient(170deg, #ffffff 0%, #fafbff 56%, #f0f3fa 100%);
+  box-shadow: var(--gloss), var(--shadow);
+  font-weight: 900;
+  text-align: center;
+  transition:
+    transform 0.28s var(--ease-settle),
+    box-shadow 0.28s var(--ease-out),
+    border-bottom-width 0.16s var(--ease-out),
+    opacity 0.4s var(--ease-out),
+    border-color 0.28s var(--ease-out);
+  animation: staggerIn 0.5s var(--ease-spring) backwards;
+  animation-delay: calc(var(--i, 0) * 80ms + 60ms);
+}
+
+.match-tile:active {
+  transform: translateY(4px) scale(0.98);
+  border-bottom-width: 3px;
+  box-shadow: var(--shadow-press);
+}
+
+/* The thick bottom border IS the slab's thickness, and on the digit tile it
+   is already the number's own colour - no colour maths needed. */
+.match-num {
+  font-size: min(7.4vh, 5.2vw);
+  color: var(--c);
+  border: 3px solid var(--c);
+  border-bottom-width: 10px;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.9);
+}
+
+.match-word {
+  font-size: min(4.6vh, 3.4vw);
+  color: var(--ink);
+  border: 3px solid #dbe2ee;
+  border-bottom-width: 10px;
+  border-bottom-color: #b7c2d6;
+  letter-spacing: 0.01em;
+}
+
+.match-tile.selected {
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 5px #fbbf24,
+    0 0 30px rgba(251, 191, 36, 0.65),
+    var(--shadow-lift);
+  animation: selectedPulse 1.5s var(--ease-in-out) infinite;
+}
+
+@keyframes selectedPulse {
+  0%, 100% { transform: scale(1.06); }
+  50% { transform: scale(1.095); }
+}
+
+.match-tile.matched {
+  opacity: 0.55;
+  pointer-events: none;
+  transform: translateY(5px) scale(0.97);
+  border-bottom-width: 3px;
+  box-shadow: var(--shadow-press);
+}
+
+.match-tile.shake {
+  animation: shake 0.42s ease;
+  border-color: #f87171;
+}
+
+/* ---------- Hub gallery shelf ----------
+   Sits in front of the scene as frosted glass. Occupies the bottom 20% of
+   the stage (3% offset + 17% tall) - .hub-grid's `bottom` is written against
+   exactly that, so the two can never meet.
+   PAD/GAP LOCK: padding and gap here are mirrored by GALLERY_PAD / GALLERY_GAP
+   in HubScene.js, which sizes every cube off them. Do not touch either. */
+.gallery {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  bottom: 3%;
+  height: 17%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.68));
+  backdrop-filter: blur(18px) saturate(1.45);
+  -webkit-backdrop-filter: blur(18px) saturate(1.45);
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 6px;
+  padding: 6px 10px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.75),
+    inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -6px 12px -4px rgba(23, 34, 58, 0.1),
+    0 -1px 0 rgba(255, 255, 255, 0.55),
+    0 -6px 24px -8px rgba(23, 34, 58, 0.14),
+    0 10px 30px -14px rgba(23, 34, 58, 0.3);
+  z-index: 5;
+  animation: staggerIn 0.6s var(--ease-out) backwards;
+  animation-delay: 0.22s;
+}
+
+/* Content-width, not equal-width: the blocks share one cube size, so each
+   tile should only claim the room its own shape needs.
+   SIZING LOCK: `flex: 0 0 auto` + 4px horizontal padding are measured by
+   HubScene.js when it fits the row. Style these, do not resize them. */
+.gallery-item {
+  height: 100%;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: var(--r-sm);
+  transition: transform 0.26s var(--ease-settle), background 0.26s var(--ease-out);
+}
+
+
+.gallery-item:active {
+  transform: translateY(3px) scale(0.9);
+}
+
+.gallery-item .nb-block {
+  pointer-events: none;
+}
+
+/* Not earned yet: a recessed slot in the shelf rather than a raised tile */
+.gallery-item.locked {
+  min-width: 46px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.1), rgba(30, 41, 59, 0.04));
+  box-shadow:
+    inset 0 2px 4px rgba(23, 34, 58, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.gallery-lock {
+  font-size: 24px;
+  opacity: 0.4;
+  align-self: center;
+  filter: grayscale(0.5);
+}
+
+/* Bonus tiles: numbers above ten, rendered as base-10 columns */
+.gallery-bonus {
+  flex: 1.35;
+}
+
+.gallery-item.boing {
+  animation: boing 0.5s var(--ease-spring);
+}
+
+@keyframes boing {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22) rotate(-4deg); }
+  70% { transform: scale(0.95) rotate(3deg); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================================
+   NUMBERBLOCK COMPONENTS
+   ============================================================ */
+.nb-block {
+  position: relative;
+}
+
+.nb-stack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 1-9 and multiples of ten: a square-ish grid (or a 1-wide column when
+ * forced, e.g. Ten) built from --c colored segments */
+.nb-grid-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+}
+
+/* A toy cube, lit from the upper left: bright cap where the light lands,
+   a warm rim down the left face, a shaded base and right face, and a
+   contact shadow so a stack reads as blocks resting on each other.
+   The radius follows --unit so a 90px play cube and a 26px gallery cube
+   keep the same corner proportion. */
+.nb-seg {
+  flex: 1;
+  margin: 1px 2px;
+  border-radius: clamp(3px, calc(var(--unit, 60px) * 0.16), 12px);
+  background: var(--c);
+  box-shadow:
+    inset 0 6px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -6px 0 rgba(0, 0, 0, 0.2),
+    inset 6px 0 0 rgba(255, 255, 255, 0.16),
+    inset -5px 0 0 rgba(0, 0, 0, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    1px 3px 5px rgba(23, 34, 58, 0.16);
+  transition: filter 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out);
+}
+
+.nb-seg.lit {
+  filter: brightness(1.45) saturate(1.25);
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 16px rgba(255, 255, 255, 0.9),
+    inset 0 6px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Seven is rainbow: one color per cube. Painted inline by addSegs() in
+   blocks.js so a multiple of seven (14, 21, 28...) can carry the same
+   sequence unbroken across several columns. */
+.nb-cube[data-value="7"] {
+  background: linear-gradient(160deg, #ef4444, #f97316, #facc15, #22c55e, #38bdf8, #4f46e5, #8b5cf6);
+}
+
+/* A white theme (Ten and every whole ten above it) needs a visible edge
+   against the white/light play area or the cubes disappear */
+.nb-pale .nb-seg,
+.nb-cube[data-value="10"] {
+  border: 2px solid rgba(30, 41, 59, 0.18);
+}
+
+/* Zero: no body, just her numeral and mouth */
+.nb-zero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.nb-zero .nb-num {
+  position: static;
+  transform: none;
+}
+
+.nb-zero-mouth {
+  width: 26%;
+  height: calc(var(--unit, 60px) * 0.14);
+  border: 2.5px solid var(--ink);
+  border-top: none;
+  border-radius: 0 0 999px 999px;
+}
+
+.nb-face {
+  position: absolute;
+  top: calc(var(--unit, 60px) * 0.16);
+  left: 0;
+  right: 0;
+  height: calc(var(--unit, 60px) * 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 17%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.nb-eye {
+  width: 17%;
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: 50%;
+  position: relative;
+  box-shadow:
+    inset 0 -2px 3px rgba(0, 0, 0, 0.14),
+    inset 0 2px 2px rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(23, 34, 58, 0.18);
+}
+
+.nb-eye::after {
+  content: "";
+  position: absolute;
+  width: 38%;
+  height: 38%;
+  background: var(--ink);
+  border-radius: 50%;
+  top: 31%;
+  left: 31%;
+  animation: blink 4.2s infinite;
+}
+
+@keyframes blink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.08); }
+}
+
+.nb-mouth {
+  position: absolute;
+  top: calc(var(--unit, 60px) * 0.66);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20%;
+  height: calc(var(--unit, 60px) * 0.14);
+  border: 2.5px solid var(--ink);
+  border-top: none;
+  border-radius: 0 0 999px 999px;
+}
+
+/* The numeral badge reads as an enamel button pinned to the block */
+.nb-num {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(170deg, #ffffff 0%, #f6f6fa 58%, #e9e9f2 100%);
+  color: var(--ink);
+  font-weight: 900;
+  font-size: calc(var(--unit, 60px) * 0.5);
+  line-height: 1.15;
+  padding: 0.04em 0.34em;
+  border-radius: 999px;
+  letter-spacing: -0.01em;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 0 rgba(23, 34, 58, 0.12),
+    0 1px 2px rgba(23, 34, 58, 0.18),
+    2px 5px 10px rgba(23, 34, 58, 0.22);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.nb-block[data-value="1"] .nb-num,
+.nb-block[data-value="2"] .nb-num {
+  top: auto;
+  bottom: 3%;
+  transform: translateX(-50%);
+}
+
+/* base-10 columns for numbers above 10 */
+.nb-columns {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.nb-col {
+  position: relative;
+  width: calc(var(--unit) * 1.18);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* anchors the face inside the top cube rather than the column's empty head */
+.nb-col .nb-seg-face {
+  position: relative;
+}
+
+.nb-col .nb-seg {
+  /* fixed cube height: columns stand on the floor and grow up to ten, so a
+     short last column must not stretch its cubes to fill the same height */
+  flex: 0 0 auto;
+  height: calc(var(--unit) - 3px);
+}
+
+.nb-multi .nb-num {
+  font-size: calc(var(--unit) * 0.85);
+  padding: 0.06em 0.5em;
+}
+
+.nb-cube {
+  position: relative;
+  border-radius: 16px;
+  background: var(--c);
+  box-shadow:
+    inset 0 7px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -8px 0 rgba(0, 0, 0, 0.2),
+    inset 7px 0 0 rgba(255, 255, 255, 0.14),
+    inset -6px 0 0 rgba(0, 0, 0, 0.08),
+    2px 9px 16px -3px rgba(23, 34, 58, 0.24);
+  display: grid;
+  place-items: center;
+}
+
+.nb-cube .nb-num {
+  top: auto;
+  bottom: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1em;
+  padding: 0.02em 0.32em;
+}
+
+/* ---------- drag & interaction states ---------- */
+.draggable {
+  position: absolute; /* draggables are stage-coordinate positioned (flow stacking breaks drag/clamp math) */
+  touch-action: none;
+}
+
+.draggable.dragging {
+  z-index: 60;
+  pointer-events: none;
+  transform: scale(1.08);
+  filter: drop-shadow(6px 18px 20px rgba(23, 34, 58, 0.34));
+}
+
+.draggable.returning {
+  transition: left 0.3s var(--ease-settle), top 0.3s var(--ease-settle);
+  z-index: 40;
+}
+
+.merging {
+  transition: left 0.24s ease-in, top 0.24s ease-in;
+  z-index: 45;
+  pointer-events: none;
+}
+
+.locked {
+  pointer-events: none;
+}
+
+.pop-in {
+  animation: popIn 0.38s var(--ease-spring);
+}
+
+@keyframes popIn {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.pop {
+  animation: pop 0.45s var(--ease-spring);
+}
+
+@keyframes pop {
+  0% { transform: scale(0.75); }
+  55% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.shake {
+  animation: shake 0.42s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
+}
+
+.happy {
+  animation: happy 0.6s ease infinite;
+}
+
+@keyframes happy {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-14px) rotate(-2deg); }
+  60% { transform: translateY(0) rotate(2deg); }
+}
+
+/* ============================================================
+   GAME 1: BLOCK SNAP & BUILDER
+   ============================================================ */
+.snap {
+  background:
+    radial-gradient(70% 50% at 20% -6%, rgba(255, 255, 255, 0.85) 0%, transparent 60%),
+    linear-gradient(180deg, #d9effe 0%, #ecf7fe 46%, #fffded 100%);
+}
+
+.snap-ground {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: 2%;
+  height: 18px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #a5f3b8 0%, #6ee08a 45%, #3fbf62 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.7),
+    0 6px 16px -4px rgba(22, 101, 52, 0.3);
+}
+
+.spawn-controls {
+  position: absolute;
+  right: 3%;
+  top: 5%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spawn-btn {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: linear-gradient(170deg, #7a72f5 0%, var(--theme) 55%, #4038c9 100%);
+  color: #fff;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  border-bottom: 7px solid #322a9e;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.45),
+    var(--shadow-lift);
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.2s var(--ease-settle),
+    border-bottom-width 0.14s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.spawn-btn-10 {
+  width: 74px;
+  height: 74px;
+  font-size: 25px;
+  align-self: flex-end;
+}
+
+.spawn-btn:active {
+  transform: translateY(5px) scale(0.94);
+  border-bottom-width: 2px;
+  box-shadow: var(--shadow-press);
+}
+
+.spawn-controls.locked .spawn-btn {
+  filter: grayscale(0.45) brightness(0.92);
+}
+
+.spawn-controls.shake .spawn-btn {
+  animation: shake 0.45s;
+}
+
+/* ============================================================
+   GAME 2: FEED THE CAT
+   ============================================================ */
+.feed {
+  background:
+    radial-gradient(70% 50% at 20% -6%, rgba(255, 255, 255, 0.8) 0%, transparent 60%),
+    linear-gradient(180deg, #fdeec0 0%, #fef6dc 48%, #fffded 100%);
+}
+
+.order-sign {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(170deg, #ffffff 0%, #fffaef 100%);
+  border-radius: 22px;
+  padding: 8px 24px;
+  display: flex;
+  gap: 12px;
+  border-bottom: 5px solid #e6d7b4;
+  box-shadow: var(--gloss), var(--shadow);
+  z-index: 6;
+}
+
+.order-fruit {
+  font-size: 42px;
+  line-height: 1;
+  filter: drop-shadow(1px 3px 3px rgba(23, 34, 58, 0.2));
+  transition: opacity 0.3s, transform 0.3s var(--ease-settle), filter 0.3s;
+}
+
+.order-fruit.eaten {
+  opacity: 0.18;
+  transform: scale(0.7) rotate(-14deg);
+  filter: grayscale(0.8);
+}
+
+.pet {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  transform: translate(-50%, -50%);
+  width: min(48vh, 40vw);
+  aspect-ratio: 1;
+  z-index: 5;
+}
+
+.pet-body {
+  position: absolute;
+  inset: 4% 4% 0 4%;
+  border-radius: 46% 46% 50% 50%;
+  background: radial-gradient(circle at 32% 26%, #fed7a8 0%, #fdba74 34%, #f97316 78%);
+  box-shadow:
+    4px 18px 34px -8px rgba(194, 65, 12, 0.42),
+    inset 0 -16px 0 rgba(0, 0, 0, 0.1),
+    inset 0 10px 0 rgba(255, 255, 255, 0.18);
+}
+
+.pet-ear {
+  position: absolute;
+  top: -4%;
+  width: 26%;
+  aspect-ratio: 1;
+  background: #f97316;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+  z-index: 1;
+}
+
+.pet-ear span {
+  position: absolute;
+  inset: 38% 22% 0 22%;
+  background: #fda4af;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+}
+
+.pet-ear.left  { left: 8%;  transform: rotate(-14deg); }
+.pet-ear.right { right: 8%; transform: rotate(14deg); }
+
+.pet-eyes {
+  position: absolute;
+  top: 22%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 15%;
+  z-index: 2;
+}
+
+.p-eye {
+  width: 21%;
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: 50%;
+  position: relative;
+  box-shadow:
+    inset 0 -4px 6px rgba(0, 0, 0, 0.14),
+    inset 0 3px 3px rgba(255, 255, 255, 0.9);
+}
+
+.p-eye i {
+  position: absolute;
+  width: 52%;
+  height: 52%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #6ee7b7 0%, #34d399 52%, #065f46 100%);
+  top: 26%;
+  left: 24%;
+  transition: transform 0.2s var(--ease-settle);
+}
+
+.p-eye i::after {
+  content: "";
+  position: absolute;
+  width: 42%;
+  height: 42%;
+  background: var(--ink);
+  border-radius: 50%;
+  top: 28%;
+  left: 30%;
+}
+
+.pet.mouth-open .p-eye i,
+.pet.happy .p-eye i {
+  transform: scale(1.2);
+}
+
+.pet-nose {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 9%;
+  aspect-ratio: 1.4;
+  background: #fb7185;
+  border-radius: 40% 40% 60% 60%;
+  z-index: 2;
+}
+
+.pet-mouth {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  transform: translateX(-50%);
+  width: 26%;
+  height: 12%;
+  background: #7c2d12;
+  border-radius: 0 0 60% 60%;
+  overflow: hidden;
+  transition: top 0.18s ease, height 0.18s ease, width 0.18s ease;
+  z-index: 2;
+}
+
+.pet.mouth-open .pet-mouth {
+  top: 44%;
+  width: 40%;
+  height: 26%;
+}
+
+.tongue {
+  position: absolute;
+  bottom: -12%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 62%;
+  height: 55%;
+  background: #f472b6;
+  border-radius: 50% 50% 40% 40%;
+}
+
+.whiskers {
+  position: absolute;
+  top: 44%;
+  width: 22%;
+  z-index: 2;
+}
+
+.whiskers i {
+  display: block;
+  height: 3px;
+  background: rgba(120, 53, 15, 0.55);
+  border-radius: 3px;
+  margin: 14% 0;
+}
+
+.whiskers.wl { left: -14%; }
+.whiskers.wr { right: -14%; }
+.whiskers.wl i:nth-child(1) { transform: rotate(6deg); }
+.whiskers.wl i:nth-child(3) { transform: rotate(-6deg); }
+.whiskers.wr i:nth-child(1) { transform: rotate(-6deg); }
+.whiskers.wr i:nth-child(3) { transform: rotate(6deg); }
+
+.pet.chewing .pet-body {
+  animation: chew 0.3s ease 2;
+}
+
+@keyframes chew {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05, 0.93); }
+}
+
+.pet.happy .pet-body {
+  animation: happy 0.6s ease infinite;
+}
+
+.food-tray {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  bottom: 3%;
+  height: 26%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.4));
+  border: 3px dashed rgba(236, 72, 153, 0.25);
+  border-radius: 26px;
+  box-shadow: inset 0 6px 16px -6px rgba(23, 34, 58, 0.12);
+}
+
+.food-item {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(2px 7px 8px rgba(23, 34, 58, 0.24));
+  touch-action: none;
+  z-index: 7;
+}
+
+.food-item.devour {
+  transition: left 0.2s ease-out, top 0.2s ease-out, transform 0.24s ease-in, opacity 0.24s ease-in;
+  transform: scale(0.2) rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+/* ============================================================
+   GAME 3: TOWER JUMP
+   ============================================================ */
+.tower {
+  background:
+    radial-gradient(70% 50% at 20% -6%, rgba(255, 255, 255, 0.85) 0%, transparent 60%),
+    linear-gradient(180deg, #d3e4fe 0%, #e9f1fe 46%, #fffded 100%);
+}
+
+.stairs {
+  position: absolute;
+  inset: 0;
+}
+
+.tower-ground {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  height: 22px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #a5f3b8 0%, #6ee08a 45%, #3fbf62 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.7),
+    0 6px 16px -4px rgba(22, 101, 52, 0.32);
+}
+
+.riser {
+  position: absolute;
+  background: linear-gradient(180deg, #fde9a8 0%, #f8ce55 48%, #e39508 100%);
+  border: 3px solid rgba(180, 83, 9, 0.35);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  box-shadow:
+    inset 6px 0 0 rgba(255, 255, 255, 0.22),
+    inset -7px 0 0 rgba(0, 0, 0, 0.08);
+}
+
+.riser.ghost {
+  background: rgba(255, 255, 255, 0.35);
+  border: 3px dashed rgba(180, 83, 9, 0.4);
+  border-top: none;
+  box-shadow: none;
+}
+
+.step-cube {
+  position: absolute;
+  border-radius: 16px;
+}
+
+.step-cube.nb-cube {
+  box-shadow:
+    inset 0 7px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -8px 0 rgba(0, 0, 0, 0.2),
+    inset 7px 0 0 rgba(255, 255, 255, 0.14),
+    3px 12px 20px -4px rgba(23, 34, 58, 0.26);
+}
+
+.gap-hole {
+  position: absolute;
+  border: 5px dashed rgba(79, 70, 229, 0.5);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 4px 12px -4px rgba(23, 34, 58, 0.16);
+  display: grid;
+  place-items: center;
+  color: rgba(79, 70, 229, 0.55);
+}
+
+.gap-hole span {
+  font-size: 44px;
+  font-weight: 900;
+}
+
+.choice-tray {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 2.5%;
+  height: 23%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  border-radius: 26px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    inset 0 6px 16px -6px rgba(23, 34, 58, 0.12),
+    0 -6px 22px -10px rgba(23, 34, 58, 0.16);
+  z-index: 8;
+}
+
+.choice-tray .nb-cube,
+.choice-cube {
+  position: absolute;
+  touch-action: none;
+}
+
+.choice-cube {
+  z-index: 9;
+}
+
+.hero {
+  position: absolute;
+  z-index: 20;
+  transition: left 0.5s var(--ease-settle), top 0.5s var(--ease-settle);
+  box-shadow: 3px 14px 26px -6px rgba(23, 34, 58, 0.4);
+}
+
+.hero.hop {
+  animation: hopAnim 0.32s ease;
+}
+
+@keyframes hopAnim {
+  0% { margin-top: 0; }
+  40% { margin-top: -26px; }
+  100% { margin-top: 0; }
+}
+
+.hero.victory {
+  animation: victoryJump 0.9s var(--ease-spring) infinite;
+}
+
+@keyframes victoryJump {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  45% { transform: translateY(-64px) rotate(-8deg); }
+  60% { transform: translateY(-64px) rotate(8deg); }
+}
+
+/* ============================================================
+   GAME 4: TRACE & POP
+   ============================================================ */
+.trace {
+  background:
+    radial-gradient(70% 50% at 20% -6%, rgba(255, 255, 255, 0.85) 0%, transparent 60%),
+    linear-gradient(180deg, #e6dffd 0%, #f1ecfe 46%, #fffded 100%);
+}
+
+.trace-box {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 30px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    inset 0 6px 18px -6px rgba(23, 34, 58, 0.1);
+  transition: opacity 0.35s, background 0.35s var(--ease-out);
+}
+
+.trace-box.done {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.trace-box.hidden {
+  opacity: 0;
+}
+
+.trace-digit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(4px 14px 22px rgba(23, 34, 58, 0.28));
+}
+
+.trace-digit.pop {
+  animation: digitPop 0.45s var(--ease-spring);
+}
+
+@keyframes digitPop {
+  0% { transform: translate(-50%, -50%) scale(0.8); }
+  55% { transform: translate(-50%, -50%) scale(1.14); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.pop-bubble {
+  position: absolute;
+  z-index: 2;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 26%, #ffffff 0%, #dfe5ff 34%, #a9b4fb 68%, #7b86ef 100%);
+  box-shadow:
+    inset -4px -6px 10px rgba(49, 46, 129, 0.34),
+    inset 3px 4px 6px rgba(255, 255, 255, 0.7),
+    1px 4px 7px rgba(23, 34, 58, 0.2);
+  animation: bubbleIn 0.4s var(--ease-spring) backwards;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes bubbleIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.pop-bubble.popped {
+  animation: bubblePop 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes bubblePop {
+  40% { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(0.1); opacity: 0; }
+}
+
+.reveal-wrap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+}
+
+.nav-btn {
+  position: absolute;
+  bottom: 5%;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(170deg, #ffffff 0%, #f7f6ff 58%, #edebfb 100%);
+  border-bottom: 6px solid #c6c1ee;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  font-size: 36px;
+  line-height: 1;
+  color: var(--theme);
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.2s var(--ease-settle),
+    border-bottom-width 0.14s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.nav-btn:active {
+  transform: translateY(4px) scale(0.94);
+  border-bottom-width: 2px;
+  box-shadow: var(--shadow-press);
+}
+
+.nav-prev { left: 3%; }
+.nav-next { right: 3%; }

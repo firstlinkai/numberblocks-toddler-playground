@@ -1,0 +1,117 @@
+/* Peek & Match: a 3x2 grid of huge flip cards.
+ *
+ * The flip is real 3D (rotateY + backface-visibility), not a fade - the flip
+ * IS the toy here, so it has to look like a card turning over in space, not
+ * content swapping. `.mem-card` never itself carries the rotation (that's
+ * `.mem-card-inner`'s job) so the idle nudge can rock the outer element with
+ * its own transform without fighting the flip transition.
+ */
+
+.memory {
+  height: 100%;
+  background:
+    radial-gradient(85% 65% at 18% -8%, rgba(255, 255, 255, 0.95) 0%, transparent 60%),
+    radial-gradient(90% 70% at 82% 108%, rgba(199, 193, 255, 0.55) 0%, transparent 62%),
+    linear-gradient(180deg, #fbfaff 0%, #ece9fb 100%);
+}
+
+.mem-grid {
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: clamp(14px, 2.2vw, 30px);
+  /* Extra room along the bottom: with even padding the lower row's raised
+     edge and shadow sat flush against the bottom of the stage. */
+  padding: clamp(12px, 2vh, 22px) clamp(20px, 2.8vw, 40px) clamp(20px, 3.4vh, 38px);
+  perspective: 1800px;
+}
+
+.mem-card {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  touch-action: none;
+  transform-origin: center;
+  animation: staggerIn 0.5s var(--ease-spring) backwards;
+  animation-delay: calc(var(--i) * 70ms);
+}
+
+.mem-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateY(0deg);
+  transition: transform 0.56s var(--ease-spring);
+  cursor: pointer;
+}
+
+.mem-card.is-up .mem-card-inner,
+.mem-card.matched .mem-card-inner {
+  transform: rotateY(180deg);
+}
+
+.mem-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-lg);
+  backface-visibility: hidden;
+  box-shadow: var(--gloss), var(--shadow-lift);
+  overflow: hidden;
+}
+
+.mem-back {
+  background: linear-gradient(158deg, #f6f5ff 0%, #c3bdfb 42%, #6366f1 100%);
+  border-bottom: 10px solid #3a34ad;
+}
+
+/* A star, not a word - it doubles as a wink at the reward the round ends in. */
+.mem-back::after {
+  content: '\2605';
+  font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 2px 4px rgba(23, 34, 58, 0.25);
+}
+
+.mem-front {
+  background: linear-gradient(158deg, #ffffff 0%, #f3f8ff 55%, #e3edf9 100%);
+  border-bottom: 10px solid #b9cde0;
+  transform: rotateY(180deg);
+  padding: 6%;
+  transition: background 0.3s var(--ease-out), border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+}
+
+.mem-face-art {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.mem-shape {
+  width: 62%;
+  height: 62%;
+  filter: drop-shadow(2px 6px 6px rgba(23, 34, 58, 0.22));
+}
+
+/* Matched: stays face-up and gets a gentle, steady glow - not one that runs
+ * a keyframe forever, that would nag the eye off toward the next pair. */
+.mem-card.matched .mem-front {
+  background: linear-gradient(158deg, #fffef0 0%, #fef3b0 45%, #fde68a 100%);
+  border-bottom-color: #d4a017;
+  box-shadow: var(--gloss), var(--shadow-lift), 0 0 0 5px rgba(250, 204, 21, 0.55), 0 0 30px rgba(250, 204, 21, 0.45);
+}
+
+/* Idle nudge on an untouched face-down card - the concentration mechanism. */
+.mem-card.nudge {
+  animation: memNudge 0.5s var(--ease-in-out) 2;
+}
+
+@keyframes memNudge {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
