@@ -46,6 +46,18 @@ Stars and unlocked Numberblocks persist in `localStorage`. The hub shows the sta
 counter, a mute toggle and a shelf of Numberblocks 0–10; tap any block to hear its
 number.
 
+Finishing a round calls `sound.praise()`, which picks a line at random from
+`WIN_LINES` and never plays the same one twice in a row. With one line configured
+that is just that line; with several — real recordings in different wordings work
+best — the payoff stops being a jingle the child can recite along with.
+
+A **rest reminder** speaks after every 20 minutes of actual play
+(`REST_EVERY_MIN` in `src/main.js`). Time accrues on a one-minute ticker and only
+while the tab is visible, so a tablet left face-down is not "playing" and a tab
+hidden for hours does not return to a burst of backlogged reminders. Nothing is
+blocked and nothing is taken away — the line is simply spoken out loud, where the
+grown-up in the room hears it too.
+
 ### Where does it go? — the two families of picture
 
 The pieces are weighted **60/40 toward numbers** (`NUMBER_SHARE` in
@@ -128,7 +140,7 @@ src/utils/fx.js              confetti and particle bursts (Web Animations API)
 src/utils/storage.js         localStorage (stars, unlocked numbers, mute) + pub-sub
 public/audio/*.wav           pre-generated speech
 public/sw.js                 service worker (pre-cache shell + all audio)
-scripts/*.mjs                build-time tooling: audio generation, checks
+scripts/*.mjs                build-time tooling: audio generation, WAV polishing, checks
 scripts/*.py                 Playwright verification scripts
 ```
 
@@ -263,6 +275,13 @@ export const PLAYERS = [
 ];
 
 export const PRAISE = { id: 'local-yummy', text: 'Yummy! Great job, Sam!' };
+
+export const WIN_LINES = [
+  { id: 'local-win-1', text: 'Hooray! You did it!' },
+  { id: 'local-win-2', text: 'Good job! You won!' }
+];
+
+export const REST = { id: 'local-rest', text: 'Time to take a rest.' };
 ```
 
 `label` is what appears on the button (leave it empty for an icon-only button),
@@ -290,6 +309,28 @@ Then run `npm run voice`. `generate-voice.mjs` merges this file when it exists,
 `check-audio.mjs` folds the same ids into what it verifies, and everything lands
 under the `local-` prefix — which is what makes one `.gitignore` rule
 (`public/audio/local-*.wav`) enough to keep the personal audio out of the repo.
+
+### Using real recordings instead of TTS
+
+A line in a familiar voice beats any synthesised one. Drop a 16-bit PCM WAV at
+`public/audio/<id>.wav`, list its id in `RECORDED` rather than `PHRASES`, and run
+it through the same post-processing the generated clips get:
+
+```bash
+node scripts/polish-wav.mjs public/audio/local-win-1.wav
+```
+
+```js
+export const RECORDED = ['local-win-1', 'local-win-2', 'local-rest'];
+```
+
+`RECORDED` is the opposite of `PHRASES`: `check-audio.mjs` still verifies those
+ids, but the generator never sees them, so a `npm run voice -- --force` re-cut
+cannot silently replace a family recording with a TTS voice.
+
+`polish-wav.mjs` trims the silence, peak-normalizes to the level every other clip
+uses and fades the edges. Skip it and the recording sits at a different volume
+from every synthesised line and opens with dead air, which in game reads as lag.
 
 Three rules ignore all of it:
 
@@ -335,6 +376,7 @@ python scripts/test-parts.py         # Where does it go?: every picture, drag a 
 python scripts/test-dots.py          # Connect the Dots: tap every dot, assert the picture completes
 python scripts/test-sort.py          # Sort It!: drive all four rules to completion
 python scripts/test-memory.py        # Peek & Match: complete a round, assert a star is awarded
+python scripts/test-rest.py          # rest reminder: quiet before 20 min, fires at 20 and again at 40
 ```
 
 Screenshots land in `.shots/` (gitignored). Look at them — most of the layout bugs in

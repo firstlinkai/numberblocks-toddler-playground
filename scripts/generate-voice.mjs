@@ -47,6 +47,7 @@ const PHRASES = {
   'hooray': 'Hooray! You did it!',
   'made-ten': 'Wow! You made ten!',
   'hello': "Hello! Let's play!",
+  'rest': 'Time to take a little rest!',
   /* Puzzle piece names ("Where does it go?") */
   'part-eyes': 'Eyes!',
   'part-nose': 'Nose!',

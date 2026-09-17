@@ -45,7 +45,10 @@ export default {
       title.textContent = p.label ? `${p.icon} ${p.label}` : p.icon;
       title.addEventListener('click', () => {
         sound.ensure();
-        sound.say(p.greet, { id: p.id });
+        /* interrupt: a tap on a name is direct feedback, and the greeting
+         * recordings run over two seconds - queued, mashing both buttons
+         * builds a backlog that answers the wrong tap. */
+        sound.say(p.greet, { id: p.id, interrupt: true });
       });
       names.appendChild(title);
     });

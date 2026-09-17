@@ -9,6 +9,7 @@
  *  - Global mute (persisted) silences BOTH sample playback and speech. */
 
 import { numberWord } from '../utils/blocks.js';
+import { WIN_LINES } from '../players.js';
 
 const MUTED_KEY = 'nbp_muted';
 
@@ -230,6 +231,17 @@ export class SoundManager {
     this.fanfare();
     const t = setTimeout(() => this.say(text, { id }), delay);
     this._speechTimers.push(t);   // cancelSpeech / scene unmount clears it
+  }
+
+  /* Round-complete praise. Picks a different line from the last one so the
+   * same words never land twice in a row - with three recordings that is the
+   * difference between a reward and a jingle the child tunes out. */
+  praise(opts = {}) {
+    let i = (Math.random() * WIN_LINES.length) | 0;
+    if (WIN_LINES.length > 1 && i === this._lastPraise) i = (i + 1) % WIN_LINES.length;
+    this._lastPraise = i;
+    const line = WIN_LINES[i];
+    this.celebrate(line.text, { id: line.id, ...opts });
   }
 
   /* ---- Spoken lines ---------------------------------------------------

@@ -9,13 +9,13 @@ const PHRASES = [
   ...Array.from({ length: 50 }, (_, i) => 'number-' + (i + 1)),
   ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((ch) => 'letter-' + ch),
   'feed-1', 'feed-2', 'feed-3', 'feed-4', 'feed-5',
-  'yummy', 'hooray', 'made-ten', 'made-20', 'made-30', 'made-40', 'made-fifty', 'hello',
+  'yummy', 'hooray', 'made-ten', 'made-20', 'made-30', 'made-40', 'made-fifty', 'hello', 'rest',
   ...['eyes', 'nose', 'mouth', 'ear', 'hat', 'wheel', 'window', 'door', 'roof',
       'apple', 'banana', 'pear', 'arm'].map((p) => 'part-' + p)
 ];
 const AUDIO_ASSETS = PHRASES.map((id) => `/audio/${id}.wav`);
 
-const CACHE_NAME = 'nbp-v11';
+const CACHE_NAME = 'nbp-v12';
 const CORE_ASSETS = [
   '/',
   '/index.html',

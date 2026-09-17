@@ -161,6 +161,13 @@ personal id uses the **`local-` prefix**, which is what makes a single
 `.gitignore` rule (`public/audio/local-*.wav`) enough to keep the spoken audio
 out of the repository too.
 
+Real recordings live under the same prefix. An id listed in `RECORDED` (rather
+than `PHRASES`) is verified by `check-audio.mjs` but never seen by the
+generator, so `npm run voice -- --force` cannot replace a family recording with
+a TTS voice. Run any hand-recorded WAV through `node scripts/polish-wav.mjs`
+first: unprocessed it sits at a different volume from every generated line and
+opens with dead air, which in game reads as lag.
+
 Never hardcode a name in a scene, and never let one into a committed file. A
 `build` does inline whatever the local override says, so `dist/` carries the
 names - that is intended, but do not publish a build to a public URL without
@@ -283,7 +290,15 @@ These are the traps. Each one has already caused a real bug.
     `npm run check:dots` guards this — the boat's mast was authored 16 units
     wide and its base dots rendered as a single unreadable lump.
 
-15. **Slots in one puzzle picture must not overlap each other.** Two dashed
+15. **A round-complete celebration goes through `sound.praise()`, never a
+    hardcoded line.** It picks from `WIN_LINES` and refuses to repeat the
+    previous pick. `MatchScene` used to celebrate with `id: 'match-great'`, for
+    which no WAV was ever generated — that line had been falling back to the
+    robot voice unnoticed since it was written. `npm run check:audio` only
+    guards ids it is told about, so an id invented inline in a scene is exactly
+    the kind it cannot see.
+
+16. **Slots in one puzzle picture must not overlap each other.** Two dashed
     outlines crossing read as one tangled shape, and the drop test then has to
     choose between two holes under the same finger. This is why a Numberblock's
     face and arms are anchored on the bottom row and its missing cubes are

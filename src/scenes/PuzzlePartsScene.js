@@ -299,7 +299,7 @@ export default {
         wait(640, () => {
           if (gen !== state.gen) return;
           confetti({ count: 80 });
-          sound.celebrate('Hooray! You did it!', { id: 'hooray' });
+          sound.praise();
           ctx.storage.addStar(1);
           wait(2400, () => { if (gen === state.gen) buildRound(); });
         });

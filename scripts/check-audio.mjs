@@ -18,7 +18,7 @@ const expected = [
   ...Array.from({ length: 5 }, (_, i) => `feed-${i + 1}`),
   ...['eyes', 'nose', 'mouth', 'ear', 'hat', 'wheel', 'window', 'door', 'roof',
       'apple', 'banana', 'pear', 'arm'].map((p) => `part-${p}`),
-  'yummy', 'hooray', 'hello',
+  'yummy', 'hooray', 'hello', 'rest',
   'made-ten', 'made-20', 'made-30', 'made-40', 'made-fifty'
 ];
 
@@ -27,7 +27,7 @@ const expected = [
  * naming them. */
 try {
   const local = await import('./phrases.local.mjs');
-  expected.push(...Object.keys(local.PHRASES || {}));
+  expected.push(...Object.keys(local.PHRASES || {}), ...(local.RECORDED || []));
 } catch (e) {
   if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e;
 }

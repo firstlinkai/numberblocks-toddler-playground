@@ -220,7 +220,7 @@ export default {
       if (!charEl || !charEl.isConnected) return;
       charEl.classList.add('victory');
       confetti({ count: 100 });
-      sound.celebrate('Hooray! You did it!', { id: 'hooray' });
+      sound.praise();
       rewardAt(charEl);
       ctx.storage.addStar(1);
       wait(2700, buildRound);

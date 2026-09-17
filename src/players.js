@@ -11,6 +11,8 @@
  *     { icon: '👦', label: 'Sam', greet: 'Hi Sam!', id: 'local-greet-1' }
  *   ];
  *   export const PRAISE = { id: 'local-yummy', text: 'Yummy! Great job, Sam!' };
+ *   export const WIN_LINES = [{ id: 'local-win-1', text: 'Hooray! You did it!' }];
+ *   export const REST = { id: 'local-rest', text: 'Time to take a rest.' };
  *
  * `label` is what appears on the button (leave it empty for an icon-only
  * button), `greet` is what is spoken, and `id` names the WAV in public/audio.
@@ -24,7 +26,17 @@ const DEFAULTS = {
     { icon: '👦', label: '', greet: "Hello! Let's play!", id: 'hello' },
     { icon: '👧', label: '', greet: "Hello! Let's play!", id: 'hello' }
   ],
-  PRAISE: { id: 'yummy', text: 'Yummy! Great job!' }
+  PRAISE: { id: 'yummy', text: 'Yummy! Great job!' },
+
+  /* Finishing a round picks one of these at random. Several real recordings in
+   * different wordings beat one line repeated: the praise is the payoff, and a
+   * payoff a child can predict word for word stops registering as one. */
+  WIN_LINES: [{ id: 'hooray', text: 'Hooray! You did it!' }],
+
+  /* Played over whatever is on screen after every REST_EVERY_MIN minutes of
+   * actual play (see main.js). Not a fail state and not a lock-out - it just
+   * says the words out loud so the grown-up in the room hears them too. */
+  REST: { id: 'rest', text: 'Time to take a little rest!' }
 };
 
 /* import.meta.glob rather than a plain import: it resolves to an empty object
@@ -35,3 +47,5 @@ const local = Object.values(overrides)[0] || {};
 
 export const PLAYERS = local.PLAYERS || DEFAULTS.PLAYERS;
 export const PRAISE = local.PRAISE || DEFAULTS.PRAISE;
+export const WIN_LINES = local.WIN_LINES || DEFAULTS.WIN_LINES;
+export const REST = local.REST || DEFAULTS.REST;

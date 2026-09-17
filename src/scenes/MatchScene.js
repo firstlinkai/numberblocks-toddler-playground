@@ -103,7 +103,7 @@ export default {
       wait(500, () => {
         if (gen !== state.gen) return;
         confetti({ count: 70 });
-        sound.celebrate('Great job!', { id: 'match-great' });
+        sound.praise();
         ctx.storage.addStar(1);
         state.round.forEach((num) => ctx.storage.unlockNumber(num));
         wait(1800, () => { if (gen === state.gen) buildRound(); });

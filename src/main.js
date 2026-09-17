@@ -1,6 +1,7 @@
 import './style.css';
 import { sound } from './audio/SoundManager.js';
 import { storage } from './utils/storage.js';
+import { REST } from './players.js';
 import HubScene from './scenes/HubScene.js';
 import SnapBuilderScene from './scenes/SnapBuilderScene.js';
 import FeedMonsterScene from './scenes/FeedMonsterScene.js';
@@ -203,6 +204,27 @@ function goTo(id) {
     if (btn) btn.innerHTML = fullscreenElement() ? FS_EXIT_ICON : FS_ICON;
   });
 });
+
+/* ---------- Rest reminder ----------
+ * After every REST_EVERY_MIN minutes of ACTUAL play, the rest line is spoken
+ * over whatever is on screen. Nothing is blocked and nothing is taken away -
+ * a three-year-old cannot be argued with, but the grown-up in the room hears
+ * it too, which is the point.
+ *
+ * Time only accrues while the tab is visible, so a tablet left face-down on
+ * the sofa is not "playing"; a minute ticker rather than one long timeout is
+ * what makes that possible, and it also survives the tab being hidden for
+ * hours without firing a burst of backlogged reminders on return. */
+const REST_EVERY_MIN = 20;
+let playedMinutes = 0;
+
+setInterval(() => {
+  if (document.hidden) return;
+  playedMinutes += 1;
+  if (playedMinutes % REST_EVERY_MIN !== 0) return;
+  sound.ensure();
+  sound.say(REST.text, { id: REST.id, interrupt: true });
+}, 60_000);
 
 /* ---------- Global toddler-proofing ---------- */
 // Unlock Web Audio on the very first interaction (iOS requirement)

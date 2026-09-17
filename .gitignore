@@ -12,3 +12,4 @@ public/_emotiontest/
 src/players.local.js
 scripts/phrases.local.mjs
 public/audio/local-*.wav
+src/audio/sample phrases/
