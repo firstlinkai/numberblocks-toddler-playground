@@ -149,10 +149,22 @@ so nothing else changes.
 
 ### Names and respelling
 
-The repository ships **no personal names**. The hub's greeting row is built from
-`src/players.js`, which defaults to two icon-only buttons and one shared
-"Hello! Let's play!" line. Names belong in that file on a local checkout, never
-in the git history and never hardcoded in a scene.
+The repository ships **no personal names**, but a checkout can be fully
+personalised. `src/players.js` holds generic defaults and picks up an optional,
+**gitignored** `src/players.local.js` through `import.meta.glob` (which resolves
+to `{}` when the file is absent, so a clean clone still builds). It exports
+`PLAYERS` for the hub greeting row and `PRAISE` for Feed the Cat's praise line.
+
+The matching TTS text lives in a gitignored `scripts/phrases.local.mjs`, which
+`generate-voice.mjs` and `check-audio.mjs` both merge when present. Every
+personal id uses the **`local-` prefix**, which is what makes a single
+`.gitignore` rule (`public/audio/local-*.wav`) enough to keep the spoken audio
+out of the repository too.
+
+Never hardcode a name in a scene, and never let one into a committed file. A
+`build` does inline whatever the local override says, so `dist/` carries the
+names - that is intended, but do not publish a build to a public URL without
+meaning to.
 
 If you do add one, know that Kokoro's grapheme-to-phoneme reads spellings
 literally, so an unusual name usually has to be respelled to come out the way it

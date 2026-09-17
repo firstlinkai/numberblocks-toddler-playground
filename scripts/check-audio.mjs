@@ -22,6 +22,16 @@ const expected = [
   'made-ten', 'made-20', 'made-30', 'made-40', 'made-fifty'
 ];
 
+/* Personal lines are declared in the gitignored scripts/phrases.local.mjs.
+ * Fold them in so the check still guards them, without the repository ever
+ * naming them. */
+try {
+  const local = await import('./phrases.local.mjs');
+  expected.push(...Object.keys(local.PHRASES || {}));
+} catch (e) {
+  if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e;
+}
+
 const missing = expected.filter((id) => !fs.existsSync(path.join(AUDIO_DIR, `${id}.wav`)));
 const onDisk = fs.readdirSync(AUDIO_DIR).filter((f) => f.endsWith('.wav')).map((f) => f.slice(0, -4));
 const orphans = onDisk.filter((id) => !expected.includes(id));

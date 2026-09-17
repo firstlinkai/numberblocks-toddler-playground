@@ -128,6 +128,20 @@ for (let n = 1; n <= 5; n++) PROFILE_BY_ID['feed-' + n] = 'bright';
   PHRASES['letter-' + ch] = ch + '!';
 });
 
+/* Personal lines (a child's name in a greeting or a praise line) live in
+ * scripts/phrases.local.mjs, which is gitignored, and are written out under
+ * the `local-` prefix so public/audio/local-*.wav is gitignored too. Names
+ * belong on the device, never in the repository. Absent file = no-op. */
+try {
+  const local = await import('./phrases.local.mjs');
+  Object.assign(PHRASES, local.PHRASES || {});
+  Object.assign(PROFILE_BY_ID, local.PROFILES || {});
+  const n = Object.keys(local.PHRASES || {}).length;
+  if (n) console.log(`+${n} local phrase(s) from scripts/phrases.local.mjs`);
+} catch (e) {
+  if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e;
+}
+
 const { KokoroTTS } = await import('kokoro-js');
 console.log('Loading Kokoro model (first run downloads ~86MB)...');
 const tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8' });

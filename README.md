@@ -247,22 +247,67 @@ cd scripts && npm install    # pulls kokoro-js (~86MB model on first run)
 
 ## Personalising it
 
-The hub's greeting row is generic on purpose — names do not belong in a public git
-history. Edit `src/players.js` to put your own children there:
+The hub's greeting row and Feed the Cat's praise line are generic in this
+repository on purpose: a child's name has no business in a public git history,
+and a WAV of that name spoken aloud even less.
+
+Personal values live in two **gitignored** files that override the defaults, so a
+checkout can be fully personalised without any of it ever reaching git.
+
+**`src/players.local.js`** — who the hub shows:
 
 ```js
 export const PLAYERS = [
-  { icon: '👦', label: 'Sam', greet: 'Hi Sam!', id: 'hi-sam' }
+  { icon: '👦', label: 'Sam', greet: 'Hi Sam!', id: 'local-greet-1' },
+  { icon: '👧', label: 'Ada', greet: 'Hi Ada!', id: 'local-greet-2' }
 ];
+
+export const PRAISE = { id: 'local-yummy', text: 'Yummy! Great job, Sam!' };
 ```
 
-Then add `hi-sam` to `PHRASES` in `scripts/generate-voice.mjs`, to the expected list
-in `scripts/check-audio.mjs` and to `PHRASES` in `public/sw.js`, and run
-`npm run voice`. Until that WAV exists the line still plays, just in the robot voice.
+`label` is what appears on the button (leave it empty for an icon-only button),
+`greet` is what is spoken, and `id` names the WAV in `public/audio`.
+`src/players.js` picks the file up through `import.meta.glob`, which resolves to
+an empty object when it is absent — so a fresh clone builds and runs with the
+generic defaults and no missing-module error.
 
-One catch worth knowing: Kokoro's grapheme-to-phoneme reads spellings literally, so
-an unusual name often needs respelling in the TTS text to come out the way it is
-actually said. Respell the TTS text only — never what is shown on screen.
+**`scripts/phrases.local.mjs`** — the TTS text for those ids:
+
+```js
+export const PHRASES = {
+  'local-greet-1': "Hi Sam! Let's play!",
+  'local-greet-2': "Hi Ada! Let's play!",
+  'local-yummy': 'Yummy! Great job, Sam!'
+};
+
+export const PROFILES = {          // optional: neutral if unlisted
+  'local-greet-1': 'bright',
+  'local-yummy': 'excited'
+};
+```
+
+Then run `npm run voice`. `generate-voice.mjs` merges this file when it exists,
+`check-audio.mjs` folds the same ids into what it verifies, and everything lands
+under the `local-` prefix — which is what makes one `.gitignore` rule
+(`public/audio/local-*.wav`) enough to keep the personal audio out of the repo.
+
+Three rules ignore all of it:
+
+```
+src/players.local.js
+scripts/phrases.local.mjs
+public/audio/local-*.wav
+```
+
+One catch worth knowing: Kokoro's grapheme-to-phoneme reads spellings literally,
+so an unusual name often needs respelling in the TTS text to come out the way it
+is actually said. Respell it in `phrases.local.mjs` only — `label` in
+`players.local.js` is what appears on screen and should stay spelled properly.
+
+Note that a **build** inlines whatever the local override says, so `dist/` and
+anything you deploy from it will contain those names. That is the point — the app
+is for those children — but it is worth knowing before you publish a build to a
+public URL.
 
 ---
 

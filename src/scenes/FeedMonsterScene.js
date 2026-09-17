@@ -2,6 +2,7 @@ import { makeFruit, numberWord } from '../utils/blocks.js';
 import { makeDraggable, returnHome, hitTest } from '../utils/drag.js';
 import { burst, confetti, rewardAt } from '../utils/fx.js';
 import { sound } from '../audio/SoundManager.js';
+import { PRAISE } from '../players.js';
 
 /* Game 2: Feed the Cat
  * The cat shows a visual order (N fruits on a sign) and asks aloud.
@@ -146,7 +147,7 @@ export default {
     function celebrate() {
       pet.classList.add('happy');
       confetti({ count: 70 });
-      sound.celebrate('Yummy! Great job!', { id: 'yummy' });
+      sound.celebrate(PRAISE.text, { id: PRAISE.id });
       rewardAt(pet);
       ctx.storage.addStar(1);
       wait(2800, () => {

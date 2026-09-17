@@ -6,3 +6,9 @@ dist/
 *.log
 public/_voicetest/
 public/_emotiontest/
+
+# Personal, per-device overrides: a child's name and the spoken WAV of it stay
+# on the device and out of the repository.
+src/players.local.js
+scripts/phrases.local.mjs
+public/audio/local-*.wav
